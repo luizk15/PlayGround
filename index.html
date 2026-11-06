@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+  <meta name="theme-color" content="#080b0c" />
+  <meta name="description" content="Zona Morta — um FPS 3D de sobrevivência contra hordas de zumbis. 26 armas. Uma saída." />
+  <title>ZONA MORTA — Última Resistência</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23070a0b'/%3E%3Ctext x='16' y='23' font-family='Arial Black,Arial' font-size='16' font-weight='900' text-anchor='middle' fill='%23ef452f'%3EZM%3C/text%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="./styles.css" />
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "./vendor/three/three.module.js",
+        "three/addons/": "./vendor/three/addons/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <div id="app">
+    <canvas id="game-canvas" aria-label="Campo de batalha 3D"></canvas>
+    <div class="world-grade" aria-hidden="true"></div>
+    <div class="scanlines" aria-hidden="true"></div>
+    <div class="film-grain" aria-hidden="true"></div>
+    <div id="damage-vignette" aria-hidden="true"></div>
+    <div id="hit-flash" aria-hidden="true"></div>
+
+    <!-- ================= MENU ================= -->
+    <section id="menu" class="screen menu-screen">
+      <div class="menu-topbar">
+        <div class="micro-brand"><span class="pulse-dot"></span> TRANSMISSÃO 07 // PROTOCOLO DE CONTAINMENTO ATIVO</div>
+        <div class="menu-utils">
+          <button class="icon-btn" id="menuAudioBtn" aria-label="Alternar som" title="Som">◖))</button>
+          <button class="icon-btn" id="fullscreenBtn" aria-label="Tela cheia" title="Tela cheia">⛶</button>
+        </div>
+      </div>
+
+      <div class="menu-main">
+        <div class="menu-copy">
+          <div class="eyebrow"><span>SETOR 09</span> // ZONA DE EXCLUSÃO</div>
+          <h1 class="logo" aria-label="Zona Morta">
+            <span class="logo-zone">ZONA</span>
+            <span class="logo-dead">MORTA</span>
+            <span class="logo-slash" aria-hidden="true"></span>
+          </h1>
+          <div class="subtitle">ÚLTIMA RESISTÊNCIA</div>
+          <p class="menu-lead">A cidade caiu. A horda não para.<br /><b>Você é a última linha.</b></p>
+
+          <div class="menu-actions">
+            <button id="playBtn" class="btn btn-primary" aria-label="Play">
+              <span class="btn-kicker">ENTRAR NA ZONA</span>
+              <span class="btn-label">JOGAR <i>↗</i></span>
+            </button>
+            <button id="armoryMenuBtn" class="btn btn-ghost">
+              <span class="btn-kicker">ARSENAL COMPLETO</span>
+              <span class="btn-label">ARSENAL <span class="btn-count">26</span></span>
+            </button>
+          </div>
+
+          <div class="menu-specs">
+            <div><b>26</b><span>ARMAS</span></div>
+            <div><b>05</b><span>MUTANTES</span></div>
+            <div><b>∞</b><span>HORDAS</span></div>
+            <div><b>3D</b><span>SOBREVIVÊNCIA</span></div>
+          </div>
+
+          <div class="menu-hint">
+            <span><kbd>WASD</kbd> MOVER</span><span><kbd>MOUSE</kbd> MIRAR</span><span><kbd>CLIQUE</kbd> ATIRAR</span><span><kbd>TAB</kbd> TROCAR ARMA</span>
+          </div>
+        </div>
+
+        <div class="menu-visual" aria-hidden="true">
+          <div class="target-reticle"><span></span><i></i></div>
+          <div class="hero-weapon-wrap">
+            <div class="hero-weapon-glow"></div>
+            <img id="heroWeapon" class="hero-weapon" alt="" />
+          </div>
+          <div class="hero-caption">
+            <span class="hero-tag">ARMA DE SERVIÇO</span>
+            <strong id="heroWeaponName">AK-47</strong>
+            <span id="heroWeaponMeta">FUZIL DE ASSALTO // 7.62×39</span>
+          </div>
+          <div class="visual-coord top-left">N 23° 44' 08"</div>
+          <div class="visual-coord bottom-right">SINAL // <span class="blink">PERDIDO</span></div>
+          <div class="visual-crosshair-line v"></div>
+          <div class="visual-crosshair-line h"></div>
+        </div>
+      </div>
+
+      <div class="menu-footer">
+        <div class="warning-tape"><span>PERIGO</span><span>RISCO BIOLÓGICO</span><span>NÃO SE APROXIME</span><span>PERIGO</span><span>RISCO BIOLÓGICO</span></div>
+        <div class="menu-footer-row">
+          <span>© 2031 // DIVISÃO DE CONTENÇÃO</span>
+          <span class="menu-tip">DICA: explosivos limpam grupos. tiros na cabeça rendem mais.</span>
+          <span>v2.6.0</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= HUD ================= -->
+    <section id="hud" class="screen hud hidden" aria-hidden="true">
+      <div class="hud-top">
+        <div class="hud-brand">
+          <div class="hud-mark">ZM</div>
+          <div><b>ZONA MORTA</b><span>SETOR 09 // SOBREVIVENTE</span></div>
+        </div>
+
+        <div class="wave-panel">
+          <div class="wave-line"><span id="waveLabel">ONDA 01</span><span id="waveTimer">—</span></div>
+          <div class="wave-progress"><i id="waveProgress"></i></div>
+          <div class="wave-sub"><span id="threatLabel">HORDA ATIVA</span><span id="enemiesLeft">0 HOSTIS</span></div>
+        </div>
+
+        <div class="hud-right">
+          <div class="score-block"><span>PONTUAÇÃO</span><b id="score">0</b><i id="combo">×1</i></div>
+          <div class="icon-row">
+            <button class="icon-btn" id="audioBtn" aria-label="Alternar som">◖))</button>
+            <button class="icon-btn" id="pauseBtn" aria-label="Pausar">II</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="radar-wrap">
+        <canvas id="radar" width="180" height="180"></canvas>
+        <div class="radar-label"><span>RADAR</span><i class="live-dot"></i></div>
+      </div>
+
+      <div id="killfeed" class="killfeed"></div>
+      <div id="headshotTag" class="headshot-tag">CABEÇA ARRANCADA <b>+100</b></div>
+      <div id="pickupToast" class="pickup-toast"></div>
+
+      <div id="crosshair" class="crosshair" aria-hidden="true">
+        <i class="ch ch-t"></i><i class="ch ch-r"></i><i class="ch ch-b"></i><i class="ch ch-l"></i>
+        <span class="ch-dot"></span>
+        <div class="hitmarker"><i></i><i></i><i></i><i></i></div>
+        <div class="ch-reload" id="reloadRing"></div>
+      </div>
+
+      <div id="bossBar" class="boss-bar hidden">
+        <div class="boss-name"><span>ABOMINAÇÃO</span><b id="bossHealthText">100%</b></div>
+        <div class="boss-track"><i id="bossHealth"></i></div>
+        <div class="boss-sub">MUTAÇÃO CLASSE V // ELIMINE A AMEAÇA</div>
+      </div>
+
+      <div class="hud-bottom">
+        <div class="vitals">
+          <div class="vital-label"><span>INTEGRIDADE</span><b id="healthText">100</b></div>
+          <div class="bar health-track"><i id="healthBar"></i><em></em><em></em><em></em></div>
+          <div class="vital-row">
+            <span class="armor-label">PLACAS <b id="armorText">50</b></span>
+            <div class="bar armor-track"><i id="armorBar"></i></div>
+          </div>
+          <div class="status-dots"><i class="ok"></i><span id="vitalStatus">ESTÁVEL</span><span class="bleed" id="bleedStatus">SANGRANDO</span></div>
+        </div>
+
+        <div class="weapon-strip" id="weaponStrip">
+          <div class="strip-title"><span>ARMA ATIVA</span><b id="weaponSlot">01 / 26</b></div>
+          <div class="strip-row" id="weaponQuick"></div>
+          <div class="strip-hint"><kbd>RODA</kbd> TROCAR <kbd>Q</kbd> RÁPIDA <kbd>TAB</kbd> ARSENAL</div>
+        </div>
+
+        <div class="ammo-block">
+          <div class="ammo-top"><span id="weaponCategory">FUZIL DE ASSALTO</span><b id="ammoMode">AUTO</b></div>
+          <div class="weapon-name" id="weaponName">AK-47</div>
+          <div class="ammo-readout">
+            <b id="ammoMag">30</b><span>/</span><i id="ammoReserve">240</i>
+          </div>
+          <div class="ammo-bottom">
+            <span class="grenade-count" title="Granadas">✹ <b id="grenadeCount">3</b></span>
+            <div class="reload-progress" id="reloadProgress"><i></i><span>RECARREGANDO</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="context-tip" id="contextTip"><kbd>F</kbd> LANTERNA <span>//</span> <kbd>G</kbd> GRANADA <span>//</span> <kbd>SHIFT</kbd> CORRER</div>
+      <div class="flashlight-state" id="flashlightState">LANTERNA ON</div>
+    </section>
+
+    <!-- ================= SCOPE ================= -->
+    <div id="scopeOverlay" class="scope-overlay hidden" aria-hidden="true">
+      <div class="scope-mask"></div>
+      <div class="scope-ring"></div>
+      <div class="scope-line h"></div>
+      <div class="scope-line v"></div>
+      <div class="scope-dot"></div>
+      <div class="scope-data left">M82A1 // .50 BMG<br /><span>ALCANCE 1800M</span></div>
+      <div class="scope-data right">VENTO 02<br /><span>ESTÁVEL</span></div>
+      <div class="scope-zoom">8.0×</div>
+    </div>
+
+    <!-- ================= WAVE BANNER ================= -->
+    <div id="waveBanner" class="wave-banner" aria-hidden="true">
+      <div class="wb-kicker">TRANSMISSÃO DE CAMPO</div>
+      <div class="wb-main"><span>ONDA</span><b id="wbNumber">01</b></div>
+      <div class="wb-sub" id="wbSub">A HORDA SE APROXIMA</div>
+    </div>
+
+    <!-- ================= INTERMISSION ================= -->
+    <div id="intermission" class="intermission hidden">
+      <div class="inter-kicker">SETOR LIMPO</div>
+      <div class="inter-title">ONDA <span id="interWave">01</span> CONCLUÍDA</div>
+      <div class="inter-stats">
+        <div><span>ABATES</span><b id="interKills">0</b></div>
+        <div><span>PRECISÃO</span><b id="interAcc">0%</b></div>
+        <div><span>TEMPO</span><b id="interTime">00:00</b></div>
+      </div>
+      <div class="inter-next">PRÓXIMA ONDA EM <b id="interCountdown">8</b><span>s</span></div>
+      <div class="inter-note">MUNIÇÃO REPOSTA · INTEGRIDADE RECUPERADA</div>
+    </div>
+
+    <!-- ================= PAUSE ================= -->
+    <section id="pause" class="screen overlay-menu hidden">
+      <div class="overlay-head"><span>JOGO PAUSADO</span><b id="pauseWave">ONDA 01</b></div>
+      <div class="pause-grid">
+        <div class="pause-main">
+          <h2>RESPIRE.<br /><span>ELES NÃO PARAM.</span></h2>
+          <p>Use este tempo para revisar seu arsenal. A próxima onda será pior.</p>
+          <div class="pause-actions">
+            <button id="resumeBtn" class="btn btn-primary compact"><span class="btn-label">CONTINUAR <i>↗</i></span></button>
+            <button id="pauseArmoryBtn" class="btn btn-ghost compact"><span class="btn-label">ARSENAL</span></button>
+          </div>
+          <div class="pause-actions secondary">
+            <button id="restartBtn" class="text-btn">REINICIAR PARTIDA</button>
+            <button id="quitBtn" class="text-btn">VOLTAR AO MENU</button>
+          </div>
+        </div>
+        <div class="pause-stats">
+          <div><span>ONDA</span><b id="pauseWaveNum">01</b></div>
+          <div><span>ABATES</span><b id="pauseKills">0</b></div>
+          <div><span>PONTOS</span><b id="pauseScore">0</b></div>
+          <div><span>ARMA</span><b id="pauseWeapon">AK-47</b></div>
+        </div>
+      </div>
+      <div class="overlay-foot">
+        <span><kbd>ESC</kbd> CONTINUAR</span><span><kbd>TAB</kbd> ARSENAL</span><span><kbd>F</kbd> LANTERNA</span>
+      </div>
+    </section>
+
+    <!-- ================= ARMORY ================= -->
+    <section id="armory" class="screen overlay-menu armory-screen hidden">
+      <div class="armory-head">
+        <div>
+          <div class="eyebrow"><span>ACESSO TOTAL</span> // DEPÓSITO DE ARMAMENTO</div>
+          <h2>ARSENAL <em>26</em></h2>
+        </div>
+        <div class="armory-controls">
+          <div class="armory-filter" id="armoryFilter">
+            <button class="active" data-cat="ALL">TODAS</button>
+            <button data-cat="PISTOLA">PISTOLAS</button>
+            <button data-cat="SMG">SMGs</button>
+            <button data-cat="FUZIL">FUZIS</button>
+            <button data-cat="SHOTGUN">ESCOPETAS</button>
+            <button data-cat="SNIPER">SNIPERS</button>
+            <button data-cat="LMG">PESADAS</button>
+            <button data-cat="ESPECIAL">ESPECIAIS</button>
+            <button data-cat="CORPO">CORPO A CORPO</button>
+          </div>
+          <button id="armoryCloseBtn" class="icon-btn close-btn" aria-label="Fechar arsenal">✕</button>
+        </div>
+      </div>
+      <div class="armory-body">
+        <div class="armory-grid" id="armoryGrid"></div>
+        <aside class="armory-detail">
+          <div class="detail-kicker" id="detailKicker">FUZIL DE ASSALTO</div>
+          <h3 id="detailName">AK-47</h3>
+          <div class="detail-image"><img id="detailImage" alt="" /><div class="detail-scan"></div></div>
+          <p id="detailDesc">Confiável, brutal e letal. O som que anuncia o fim.</p>
+          <div class="stat-list" id="detailStats"></div>
+          <div class="detail-ammo"><span>MUNIÇÃO</span><b id="detailAmmo">30 / 240</b></div>
+          <button id="equipBtn" class="btn btn-primary compact"><span class="btn-label">EQUIPAR <i>↗</i></span></button>
+          <div class="detail-hint">TODAS AS ARMAS ESTÃO LIBERADAS</div>
+        </aside>
+      </div>
+      <div class="overlay-foot"><span><kbd>ESC</kbd> FECHAR</span><span><kbd>1–9</kbd> TROCA RÁPIDA NO CAMPO</span><span><kbd>RODA</kbd> CICLAR ARMAS</span></div>
+    </section>
+
+    <!-- ================= GAME OVER ================= -->
+    <section id="gameover" class="screen overlay-menu gameover-screen hidden">
+      <div class="go-scan"></div>
+      <div class="go-kicker">SINAL VITAL PERDIDO</div>
+      <h2 class="go-title">VOCÊ<br /><span>MORREU</span></h2>
+      <p class="go-line">A horda não sente. A horda não para. <b>Mas alguém vai continuar.</b></p>
+      <div class="go-stats">
+        <div><span>ONDA ALCANÇADA</span><b id="goWave">01</b></div>
+        <div><span>ABATES</span><b id="goKills">0</b></div>
+        <div><span>PONTUAÇÃO</span><b id="goScore">0</b></div>
+        <div><span>PRECISÃO</span><b id="goAcc">0%</b></div>
+        <div><span>HEADSHOTS</span><b id="goHeads">0</b></div>
+        <div><span>TEMPO</span><b id="goTime">00:00</b></div>
+      </div>
+      <div class="go-actions">
+        <button id="retryBtn" class="btn btn-primary compact"><span class="btn-label">TENTAR DE NOVO <i>↗</i></span></button>
+        <button id="goMenuBtn" class="btn btn-ghost compact"><span class="btn-label">MENU</span></button>
+      </div>
+      <div class="go-foot">DICA: USE AS CAIXAS DE MUNIÇÃO E AS PLACAS DE ARMADURA. HORDAS GRANDES PEDEM EXPLOSIVOS.</div>
+    </section>
+
+    <!-- ================= TOUCH ================= -->
+    <div id="touchLayer" class="touch-layer hidden">
+      <div id="lookArea" class="look-area"></div>
+      <div id="joystick" class="joystick"><div class="joystick-ring"></div><div class="joystick-knob" id="joystickKnob"></div></div>
+      <button id="touchFire" class="touch-btn fire" aria-label="Atirar"><span></span>FOGO</button>
+      <button id="touchAim" class="touch-btn small" aria-label="Mirar">MIRA</button>
+      <button id="touchReload" class="touch-btn small" aria-label="Recarregar">REC</button>
+      <button id="touchJump" class="touch-btn small" aria-label="Pular">SALTO</button>
+      <button id="touchSwap" class="touch-btn small" aria-label="Trocar arma">ARMA</button>
+      <button id="touchNade" class="touch-btn small" aria-label="Granada">GRN</button>
+    </div>
+
+    <!-- ================= LOADING ================= -->
+    <div id="loader" class="loader">
+      <div class="loader-mark">ZM</div>
+      <div class="loader-text">CARREGANDO PROTOCOLO DE SOBREVIVÊNCIA</div>
+      <div class="loader-track"><i id="loaderBar"></i></div>
+      <div class="loader-sub" id="loaderSub">INICIALIZANDO ARENA // SETOR 09</div>
+    </div>
+
+    <div id="rotateHint" class="rotate-hint"><span>↻</span><b>GIRE O DISPOSITIVO</b><p>Para uma melhor experiência de combate</p></div>
+  </div>
+
+  <noscript>Este jogo precisa de JavaScript e WebGL habilitado.</noscript>
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
